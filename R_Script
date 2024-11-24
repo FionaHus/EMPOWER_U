@@ -1,0 +1,139 @@
+# Install necessary packages 
+install.packages(c("tidyverse", "car", "lmtest", "ggplot2", "gt"))
+
+# Load libraries
+library(tidyverse)
+library(car)
+library(lmtest)
+library(ggplot2)
+library(gt)
+
+# Get Data
+setwd("C:/Users/fiona/OneDrive/Dokumente/Jobs/PhD/FU/Empower-U Task Unterlagen/Empower-U Aufgabe")
+data <- read.csv("dataset-cleaned.csv")
+
+
+# Inspect data
+str(data)
+summary(data)
+
+# Check for missing values
+if (any(is.na(data))) {
+  cat("Missing values detected. Consider addressing them.\n")
+} else {
+  cat("No missing values detected.\n")
+}
+
+# Create VDS difference
+data$VDS_difference <- data$VDS_after - data$VDS_before
+
+# Convert variables to factors
+data$interface_type <- as.factor(data$Groups)  
+data$Gender <- as.factor(data$Gender)         
+data$Education <- as.factor(data$Education)   
+
+# Descriptive statistics for VDS difference
+cat("\nSummary of VDS Difference:\n")
+summary(data$VDS_difference)
+
+# Summary of demographic variables
+cat("\nParticipant Demographics:\n")
+cat("Age:\n")
+summary(data$Age)
+cat("Gender Distribution:\n")
+table(data$Gender)  
+cat("Education Distribution:\n")
+table(data$Education)
+
+# Save demographics as a table
+demographics_table <- tibble(
+  Variable = c("Age", "Gender", "Education"),
+  Summary = c(
+    paste0("Mean: ", round(mean(data$Age), 2), 
+           ", SD: ", round(sd(data$Age), 2), 
+           ", Range: ", min(data$Age), "-", max(data$Age)),
+    paste(table(data$Gender), collapse = ", "),
+    paste(table(data$Education), collapse = ", ")
+  )
+)
+
+# Export demographics table
+demographics_table %>%
+  gt() %>%
+  tab_header(title = "Participant Demographics") %>%
+  gtsave("participant_demographics.png")
+
+#  Outlier Analysis
+
+# Check for outliers in VDS difference
+boxplot(data$VDS_difference, main = "Outlier Detection: VDS Difference", col = "lightblue")
+outliers <- boxplot.stats(data$VDS_difference)$out
+cat("\nOutliers Detected:\n", outliers)
+
+
+# ANCOVA
+
+model <- lm(VDS_difference ~ interface_type + Knowledge_score + Age + Gender + Education, data = data)
+
+# model summary
+cat("\nANCOVA Model Summary:\n")
+model_summary <- summary(model)
+print(model_summary)
+
+# Generate ANCOVA Results Table
+ancova_table <- summary(model)$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Predictor") %>%
+  rename(
+    Estimate = Estimate,
+    Std_Error = `Std. Error`,
+    t_value = `t value`,
+    p_value = `Pr(>|t|)`
+  )
+
+# Save ANCOVA results table
+ancova_table %>%
+  gt() %>%
+  tab_header(title = "ANCOVA Results: Predictors of VDS Difference") %>%
+  fmt_number(columns = c(Estimate, Std_Error, t_value, p_value), decimals = 3) %>%
+  gtsave("ancova_results.png")
+
+# Assumption Checks
+
+# Linearity
+plot(predict(model), resid(model), 
+     main = "Residuals vs Fitted Values", 
+     xlab = "Fitted Values", 
+     ylab = "Residuals", 
+     pch = 20, col = "blue")
+abline(h = 0, col = "red")
+
+# Homoscedasticity
+cat("\nHomoscedasticity Check (Breusch-Pagan Test):\n")
+bp_test <- bptest(model)
+print(bp_test)
+
+# Normality of residuals
+cat("\nNormality Check:\n")
+qqnorm(resid(model))
+qqline(resid(model), col = "red")
+shapiro_test <- shapiro.test(resid(model))
+print(shapiro_test)
+
+# visualization for Presentation
+
+# boxplot for VDS differences
+ggplot(data, aes(x = interface_type, y = VDS_difference)) +
+  geom_boxplot(fill = "skyblue", color = "black", outlier.color = "red", outlier.size = 2) +
+  labs(title = "Distribution of VDS Difference by Interface Type",
+       x = "Interface Type",
+       y = "VDS Difference") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggsave("vds_difference_boxplot.png", width = 7, height = 5)
+
+#  Save Cleaned Data
+
+write.csv(data, "cleaned_data.csv")
+
