@@ -109,9 +109,9 @@ plot(predict(model), resid(model),
 abline(h = 0, col = "red")
 
 # Homoscedasticity
-cat("\nHomoscedasticity Check (Breusch-Pagan Test):\n")
-bp_test <- bptest(model)
-print(bp_test)
+cat("\nHomoscedasticity Check (Levene's Test):\n")
+levene_test <- leveneTest(VDS_difference ~ interface_type, data = data)
+print(levene_test)
 
 # Normality of residuals
 cat("\nNormality Check:\n")
