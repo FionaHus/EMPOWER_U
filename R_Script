@@ -73,12 +73,31 @@ cat("\nOutliers Detected:\n", outliers)
 
 # ANCOVA
 
+
 model <- lm(VDS_difference ~ interface_type + Knowledge_score + Age + Gender + Education, data = data)
 
 # model summary
 cat("\nANCOVA Model Summary:\n")
 model_summary <- summary(model)
 print(model_summary)
+
+ancova_results_df <- ancova_results_df %>%
+  rownames_to_column(var = "Predictor") %>%
+  rename(
+    Sum_Sq = `Sum Sq`,
+    Degrees_of_Freedom = Df,
+    F_value = `F value`,
+    P_value = `Pr(>F)`
+  )
+
+print(ancova_results_df)
+
+# Export the ANCOVA results 
+ancova_results_df %>%
+  gt() %>%
+  tab_header(title = "ANCOVA Results: Adjusted F-values for Model Terms") %>%
+  fmt_number(columns = c(Sum_Sq, F_value, P_value), decimals = 3) %>%
+  gtsave("ancova_results_table.png")
 
 # Generate ANCOVA Results Table
 ancova_table <- summary(model)$coefficients %>%
@@ -109,9 +128,6 @@ plot(predict(model), resid(model),
 abline(h = 0, col = "red")
 
 # Homoscedasticity
-cat("\nHomoscedasticity Check (Levene's Test):\n")
-levene_test <- leveneTest(VDS_difference ~ interface_type, data = data)
-print(levene_test)
 
 # Normality of residuals
 cat("\nNormality Check:\n")
